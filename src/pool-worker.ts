@@ -88,19 +88,23 @@ export class PoolWorker extends Worker {
             oGetExecutionCode
                 .subscribe({
                     next:executionCode => {
-                        this.on("message", (result:ResMessage<WorkerDataOut>) => {
+                        const errorListener = (error:Error) => {
+                            subscriber.error(this._genError(error));
+                            subscriber.complete();
+                        };
+                        const messageListener = (result:ResMessage<WorkerDataOut>) => {
                             if (result.desc.latest) {
                                 subscriber.next(result);
                                 subscriber.complete();
                                 this._isBusy = false;
+                                this.removeListener("error", errorListener);
+                                this.removeListener("message", messageListener);
                                 this.emit("ready", this);
                             }else
                                 subscriber.next(result);
-                        });
-                        this.on("error", error => {
-                            subscriber.error(this._genError(error));
-                            subscriber.complete();
-                        });
+                        };
+                        this.on("message", messageListener);
+                        this.on("error", errorListener);
                         this.postMessage({
                             executionCode,
                             workerData
