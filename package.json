@@ -1,0 +1,13 @@
+{
+  "name": "pool-worker-threads",
+  "version": "1.0.0",
+  "description": "Allow to use a pool for worker_threads",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "author": "kevin.voyer.developpeur@gmail.com",
+  "license": "ISC",
+  "dependencies": {
+    "@types/node": "^12.12.5",
+    "rxjs": "^6.5.3"
+  }
+}
