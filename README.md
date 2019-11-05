@@ -27,7 +27,7 @@ Instance of WorkerPool is a threads pool executes different task functions provi
 
 Choose one idle worker in the pool to execute your task function. The Promise is resolved with the result your task returned.
 
-## Tipicale exemple using observable
+## Typical example using observable
 ```TS
 import { WorkerPool } from "pool-worker-threads";
 
@@ -62,7 +62,7 @@ const obs = new Observable()
 const promise = obs.toPromise(); //This is your promise it 'll wait for all your worker messages
 ```
 
-## Tipicale exemple using some data with Promise aproach
+## Typical example using some data with Promise aproach
 ```TS
 import { WorkerPool } from "./pool-worker-threads";
 

@@ -1,3 +1,16 @@
 tsconfig.json
 src
 .vscode
+.*.swp
+._*
+.DS_Store
+.git
+.hg
+.npmrc
+.lock-wscript
+.svn
+.wafpickle-*
+config.gypi
+CVS
+npm-debug.log
+node_modules
