@@ -1,13 +1,19 @@
 {
   "name": "pool-worker-threads",
-  "version": "1.0.1",
+  "version": "1.0.3",
   "description": "Allow to use a pool for worker_threads",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "author": "kevin.voyer.developpeur@gmail.com",
   "license": "ISC",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kVoyerDev/pool-worker-threads.git"
+  },
   "dependencies": {
+    "@types/jsonwebtoken": "^8.3.5",
     "@types/node": "^12.12.5",
+    "jsonwebtoken": "^8.5.1",
     "rxjs": "^6.5.3"
   }
 }
