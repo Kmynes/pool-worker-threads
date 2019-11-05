@@ -4,22 +4,25 @@ import * as fs  from "fs";
 import * as util from "util";
 
 const readFile = util.promisify(fs.readFile);
-const exists = util.promisify(fs.exists);
 
-export class PoolWorkerParams<WorkerDataIn, WorkerDataOut> {
-    task?:Function
-    file?:string
+export interface PoolWorkerParams<WorkerDataIn, WorkerDataOut> {
     workerData?:WorkerDataIn
-    postMessage?:(data:WorkerDataOut) => void
+    task:string | (
+            (workerData:WorkerDataIn, 
+            postMessage:(data:WorkerDataOut) => void) => WorkerDataOut
+        )
 }
 
 export interface ResMessage<WorkerDataOut> {
-    desc:{ latest:boolean, processingDuration:number}, 
+    isError:boolean
+    error:Error
+    desc:{ latest:boolean, processingDuration:number}
     data:WorkerDataOut
 }
 
 export class PoolWorker extends Worker {
     private static _idCounter = 0;
+    private static _confFunction = `.bind(null, workerData, postMessage)`;
     private _isBusy:boolean;
     get busy():boolean {
         return this._isBusy;
@@ -38,11 +41,14 @@ export class PoolWorker extends Worker {
 
     private async _getExecutionCodeFromFile(file:string):Promise<string> {
         const code = await readFile(file);
-        return `(function() {\n\t${code.toString("utf8").replace(/\n/g, '\n\t')}\n})()`;
+        return `((function() {\n\t${code.toString("utf8").replace(/\n/g, '\n\t')}\n})${PoolWorker._confFunction})()`;
     }
 
     private _getExecutionCodeFromTask(task:Function):string {
-        return `(${task.toString()})()`;
+        const strFn = task.toString();
+        const res = /^task[^]*([^]*)[^]*{[^]*}$/.test(strFn) ? 
+                    `function ${strFn}` : strFn;
+        return `((${res})${PoolWorker._confFunction})()`;
     }
 
     private _getExecutionCode(provider:string|Function):Observable<string> {
@@ -76,23 +82,26 @@ export class PoolWorker extends Worker {
     runTask<WorkerDataIn, WorkerDataOut>(
         params:PoolWorkerParams<WorkerDataIn, WorkerDataOut>
         ):Observable<ResMessage<WorkerDataOut>> {
-        const { task, file, workerData } = params;
-        if (task && file)
-            throw new Error("You can't specify task and file but only one of them");
-        else if (!task && !file)
-            throw new Error("You must specify a souce of code task or file");
-
+        const { task, workerData } = params;
+        if (typeof task !== "string" && typeof task !== "function")
+            throw new Error("You must specify a task as string or as function");
         this._isBusy = true;
         return new Observable<ResMessage<WorkerDataOut>>(subscriber => {
-            const oGetExecutionCode = this._getExecutionCode(task ? task as Function : file as string);
+            const oGetExecutionCode = this._getExecutionCode(task);
             oGetExecutionCode
                 .subscribe({
                     next:executionCode => {
                         const errorListener = (error:Error) => {
                             subscriber.error(this._genError(error));
                             subscriber.complete();
+                            this.removeListener("error", errorListener);
+                            this.removeListener("message", messageListener);
                         };
                         const messageListener = (result:ResMessage<WorkerDataOut>) => {
+                            if (result.isError) {
+                                this.emit("error", result.error);
+                                return;
+                            }
                             if (result.desc.latest) {
                                 subscriber.next(result);
                                 subscriber.complete();

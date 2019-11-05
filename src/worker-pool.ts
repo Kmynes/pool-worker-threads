@@ -5,7 +5,7 @@ import { WaitingQueue } from "./waiting-queue";
 export class WorkerPool {
     private static vmCode:string = `
         const vm = require('vm');
-        const { parentPort } = require('worker_threads');
+        const p_WorkerPool = require('worker_threads').parentPort;
         var lastMessageDate;
         const postMessage = (data, desc) => {
             if (!desc) {
@@ -18,23 +18,26 @@ export class WorkerPool {
                 };
             }
             const ret = {
-                data,
-                desc:desc
+                isError:false,
+                data,desc
             };
-            parentPort.postMessage(ret);
+            p_WorkerPool.postMessage(ret);
         };
-        parentPort.on('message', async ({ executionCode, workerData }) => {
-            this.workerData = workerData;
-            this.postMessage = postMessage;
-            const start = Date.now();
-            lastMessageDate = start;
-            const script = vm.createScript(executionCode);
-            const result = await script.runInThisContext();
-            const desc = {
-                processingDuration:Date.now() - start,
-                latest:true
+
+        p_WorkerPool.on('message', async ({ executionCode, workerData }) => {
+            try {
+                const start = Date.now();
+                lastMessageDate = start;
+                const sandbox = {postMessage, workerData, require, console};
+                const result = await vm.runInNewContext(executionCode, sandbox);
+                const desc = {
+                    processingDuration:Date.now() - start,
+                    latest:true
+                };
+                postMessage(result, desc);
+            }catch(error) {
+                p_WorkerPool.postMessage({isError:true, error});
             }
-            this.postMessage(result, desc);
         });
     `;
     private workers:PoolWorker[];
