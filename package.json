@@ -16,6 +16,7 @@
   },
   "devDependencies": {
     "@types/jsonwebtoken": "^8.3.5",
-    "@types/node": "^12.12.5"
+    "@types/node": "^12.12.5",
+    "generate-password": "^1.4.2"
   }
 }
