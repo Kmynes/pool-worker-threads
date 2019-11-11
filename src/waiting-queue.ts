@@ -1,27 +1,37 @@
 import { EventEmitter } from "events";
-import { PoolWorker, PoolWorkerParams, ResMessage } from "./pool-worker";
+import { PoolWorker, PoolWorkerTask, ResMessage } from "./pool-worker";
 import { Observable } from "rxjs";
 
-type TaskFn = (woker:PoolWorker) => void;
+interface TaskDesc {
+    task:PoolWorkerTask<any, any>
+    fn:(woker:PoolWorker) => void
+}
 
 export class WaitingQueue extends EventEmitter {
-    private _queue: TaskFn[] = [];
+    private _queue: TaskDesc[] = [];
     constructor() {
         super();
         this.on("worker-ready", (worker:PoolWorker) => {
-            const taskFn = this._queue.shift();
-            if (taskFn) {
-                taskFn(worker);
-            }
+            const taskDesc = this._queue.shift();
+            if (taskDesc)
+                taskDesc.fn(worker);
         });
     }
 
+    removeFromQueue(taskId:number):void {
+        var taskIndex = -1;
+        while ((taskIndex = this._queue.findIndex(
+                task => task.task.id === taskId)) !== -1) {
+                this._queue.splice(taskIndex, 1);
+            }
+    }
+
     runTask<WorkerDataIn, WorkerDataOut>(
-        params:PoolWorkerParams<WorkerDataIn, WorkerDataOut>) {
+        task:PoolWorkerTask<WorkerDataIn, WorkerDataOut>) {
         return new Observable<ResMessage<WorkerDataOut>>(
             subscriber => {
-                this._queue.push((worker:PoolWorker) => {
-                    worker.runTask<WorkerDataIn, WorkerDataOut>(params)
+                const handlerWorkerReady = (worker:PoolWorker) => {
+                    worker.runTask<WorkerDataIn, WorkerDataOut>(task)
                         .subscribe({
                             next: result => {
                                 subscriber.next(result);
@@ -36,6 +46,10 @@ export class WaitingQueue extends EventEmitter {
                                 subscriber.complete();
                             }
                         });
+                };
+                this._queue.push({
+                    task,
+                    fn:handlerWorkerReady
                 });
             });
     }

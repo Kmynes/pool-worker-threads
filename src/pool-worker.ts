@@ -13,6 +13,11 @@ export interface PoolWorkerParams<WorkerDataIn, WorkerDataOut> {
         )
 }
 
+export interface PoolWorkerTask<WorkerDataIn, WorkerDataOut> {
+    id:number
+    params:PoolWorkerParams<WorkerDataIn, WorkerDataOut>
+}
+
 export interface ResMessage<WorkerDataOut> {
     isError:boolean
     error:Error
@@ -24,6 +29,12 @@ export class PoolWorker extends Worker {
     private static _idCounter = 0;
     private static _confFunction = `.bind(null, workerData, postMessage)`;
     private _isBusy:boolean;
+    private _currentTaskId:number = 0;
+
+    get currentTaskId():number{
+        return this._currentTaskId;
+    }
+
     get busy():boolean {
         return this._isBusy;
     }
@@ -80,9 +91,10 @@ export class PoolWorker extends Worker {
     }
 
     runTask<WorkerDataIn, WorkerDataOut>(
-        params:PoolWorkerParams<WorkerDataIn, WorkerDataOut>
+        taskWorker:PoolWorkerTask<WorkerDataIn, WorkerDataOut>
         ):Observable<ResMessage<WorkerDataOut>> {
-        const { task, workerData } = params;
+        this._currentTaskId = taskWorker.id;
+        const { task, workerData } = taskWorker.params;
         if (typeof task !== "string" && typeof task !== "function")
             throw new Error("You must specify a task as string or as function");
         this._isBusy = true;
@@ -106,6 +118,7 @@ export class PoolWorker extends Worker {
                                 subscriber.next(result);
                                 subscriber.complete();
                                 this._isBusy = false;
+                                this._currentTaskId = 0;
                                 this.removeListener("error", errorListener);
                                 this.removeListener("message", messageListener);
                                 this.emit("ready", this);
