@@ -63,6 +63,8 @@ const promise = obs.toPromise(); //This is your promise it 'll wait for all your
 ```
 
 ## Typical example using some data with Promise aproach
+`WorkerPool.execAwait`
+
 ```TS
 import { WorkerPool } from "./pool-worker-threads";
 
@@ -92,15 +94,15 @@ for (let i = 0; i < threads; i++) {
         })
         * But I am a proper person
     */
-    const workerPromise =  pool.exec<WorkerDataIn, string[]>({
+    const workerPromise =  pool.execAwait<WorkerDataIn, string[]>({
             workerData,
-            task(data:WorkerDataIn, post):string[] {
+            task(data:WorkerDataIn, post:Function):string[] {
                 //Be carefule the code here must be writte in JS
                 const jwt  = require("jsonwebtoken"); //Thus we use a require instead of import
                 const tokens = [];
-                const { nbrTokenYouMustBuild, secret } = workerData;
+                const { nbrTokenYouMustBuild, secret } = data;
                 while (tokens.length !== nbrTokenYouMustBuild) {
-                    const payload = { data:"gitHub:kVoyDev" };
+                    const payload = { data:"gitHub:Kmynes" };
                     const tokenOptions = { expiresIn: '1h' };
                     const token = jwt.sign(payload, secret, tokenOptions);
                     tokens.push(token);
@@ -108,8 +110,7 @@ for (let i = 0; i < threads; i++) {
 
                 return tokens; //We send one message at the, but we could send it by piece
             }
-        }) //You can easily accumulate all datas emited by you observable in a promise
-        .toPromise();
+        }); //You can easily accumulate all datas emited in a promise
     workersPromises.push(workerPromise);
 }
 
@@ -118,8 +119,13 @@ Promise.all(workersPromises)
         const tokens = workersResults.reduce(
             (accRes, currRes) => accRes.concat(currRes) //We just create a big array with all tokens
         );
-        console.log(tokens);
-        pool.destroy(); // Don't forget to destroy your pool or your program 'll stay up
+        if (tokens.length === 1000)
+            console.log("Test execWaitOnce success");
+        else
+            console.error("Test execWaiteOnce failure");
+        pool.destroy();
+    }).catch(e => { 
+        console.error("Test execWaiteOnce failure ", e); 
     });
 ```
 
@@ -165,6 +171,68 @@ pool.exec<Number, Number>({
         return await Promise.resolve(number);
     }
 }).subscribe(subScribeListenner);*/
+```
+
+### Interupt seach
+`WorkerPool.execManyDuplicationCloseOnMessage`
+```TS
+import { WorkerPool } from "../index";
+import { generate } from "generate-password"
+
+const threads = 4;
+
+const pool = new WorkerPool(threads, true);
+
+const wordToSearch = generate({ length:120 });
+
+const nbrStr = 3000000;
+
+pool.execAwaitManyDuplication<number, string[]>({
+    workerNumber:threads,
+    params:{
+        workerData:nbrStr,
+        task(data:number) {
+            const { generate } = require("generate-password");
+            const listStr = [];
+            while (listStr.length !== data)
+                listStr.push(generate({ length:10 }));
+            return listStr;
+        }
+    }
+}).then(resList => {
+    const list = resList.reduce((acc, curr) => acc.concat(curr))
+    list.push(wordToSearch);
+    type DataIn = { list:string[], wordToSearch:string };
+    const workersData = [] as DataIn[];
+    let pad = nbrStr/threads;
+    for (var i = 0; i < threads; i++) {
+        workersData.push({
+            list:list.slice(pad * i, (i+1) * (pad)),
+            wordToSearch
+        });
+    }
+    workersData[0].list[200000] = wordToSearch;
+    console.time("Search");
+    pool.execManyDuplicationCloseOnMessage<DataIn, boolean>({
+        workerNumber:threads,
+        checkValue(msg) {
+            return msg === true;
+        },
+        workersData,
+        task(data:DataIn, post:Function) {
+            for (let i = 0; i < data.list.length; i++) {
+                if (data.list[i] === data.wordToSearch) {
+                    return true;
+                }
+            }
+            return false;
+        }
+    }).then(res => {
+        console.timeEnd("Search");
+        console.log(res);
+        pool.destroy();
+    })
+});
 ```
 
 ### `pool.destroy()`
