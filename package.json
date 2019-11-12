@@ -1,6 +1,6 @@
 {
   "name": "pool-worker-threads",
-  "version": "1.0.4",
+  "version": "1.0.6",
   "description": "Allow to use a pool for worker_threads",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -18,5 +18,15 @@
     "@types/jsonwebtoken": "^8.3.5",
     "@types/node": "^12.12.5",
     "generate-password": "^1.4.2"
-  }
+  },
+  "keywords": [
+    "thread",
+    "pool",
+    "worker_thread",
+    "observable_worker",
+    "promise_worker",
+    "stop_worker",
+    "task",
+    "worker_pool"
+  ]
 }
